@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <limits>
 #include <filesystem>
 #include <unordered_map>
 #include <thread>
@@ -233,8 +234,10 @@ namespace chunker_countsort_laszip {
 					double uy = (double(Y) * posScale.y + posOffset.y - min.y) / size.y;
 					double uz = (double(Z) * posScale.z + posOffset.z - min.z) / size.z;
 
-					bool inBox = ux >= 0.0 && uy >= 0.0 && uz >= 0.0;
-					inBox = inBox && ux <= 1.0 && uy <= 1.0 && uz <= 1.0;
+					const double eps = std::numeric_limits<double>::epsilon();
+
+					bool inBox = ux + eps >= 0.0 && uy + eps >= 0.0 && uz + eps >= 0.0;
+					inBox = inBox && ux <= 1.0 + eps && uy <= 1.0 + eps && uz <= 1.0 + eps;
 
 					if (!inBox) {
 						stringstream ss;
