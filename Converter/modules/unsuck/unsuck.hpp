@@ -541,7 +541,8 @@ inline void writeFile(string path, string text) {
 		throw std::runtime_error("Failed to obtain FD for " + path + ": " + std::system_error(errno, std::system_category()).what());
 	}
 	const char * buf = text.data();
-	for (size_t bytes_written = 0; bytes_written < text.size(); ) {
+	size_t bytes_written = 0;
+	for (; bytes_written < text.size(); ) {
 		::ssize_t res = ::write(fd, &buf[bytes_written], text.size() - bytes_written);
 		if (res < 0) {
 			if (errno == EINTR) {
@@ -554,8 +555,9 @@ inline void writeFile(string path, string text) {
 		}
 		bytes_written += res;
 	}
-	if (::fclose(f) != 0) {
-		throw std::runtime_error("Failed to close " + path + ": " + std::system_error(errno, std::system_category()).what());
+	int close_ret = ::fclose(f);
+	if (close_ret != 0) {
+		throw std::runtime_error("Failed to close " + path + ", error " + to_string(close_ret) + " after writing " + to_string(bytes_written) + " bytes: " + std::system_error(errno, std::system_category()).what());
 	}
 
 }
