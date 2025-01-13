@@ -20,7 +20,7 @@ struct SamplerPoisson : public Sampler {
 			double x;
 			double y;
 			double z;
-			int32_t pointIndex;
+			int64_t pointIndex;
 			int32_t childIndex;
 		};
 
