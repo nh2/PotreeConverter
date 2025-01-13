@@ -78,7 +78,7 @@ struct SamplerPoisson : public Sampler {
 			vector<vector<int8_t>> acceptedChildPointFlags;
 			vector<int64_t> numRejectedPerChild(8, 0);
 
-			for (int64_t childIndex = 0; childIndex < 8; childIndex++) {
+			for (int32_t childIndex = 0; childIndex < 8; childIndex++) {
 				auto child = node->children[childIndex];
 
 				if (child == nullptr) {
