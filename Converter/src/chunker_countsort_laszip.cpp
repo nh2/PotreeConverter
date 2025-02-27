@@ -214,7 +214,7 @@ namespace chunker_countsort_laszip {
 			auto posScale = outputAttributes.posScale;
 			auto posOffset = outputAttributes.posOffset;
 
-			for (int i = 0; i < numToRead; i++) {
+			for (int64_t i = 0; i < numToRead; i++) {
 				int64_t pointOffset = i * bpp;
 
 				laszip_read_point(laszip_reader);
@@ -917,7 +917,7 @@ namespace chunker_countsort_laszip {
 
 			// ALLOCATE BUCKETS
 			vector<shared_ptr<Buffer>> buckets(nodes.size(), nullptr);
-			for (int i = 0; i < nodes.size(); i++) {
+			for (size_t i = 0; i < nodes.size(); i++) {
 				int64_t numPoints = counts[i];
 				int64_t bytes = numPoints * bpp;
 				buckets[i] = make_shared<Buffer>(bytes);
@@ -951,7 +951,7 @@ namespace chunker_countsort_laszip {
 			addBuckets(targetDir, buckets);
 
 			// merge attribute metadata of this batch into global attribute metadata
-			for (int i = 0; i < outputAttributesCopy.list.size(); i++) {
+			for (size_t i = 0; i < outputAttributesCopy.list.size(); i++) {
 				Attribute& source = outputAttributesCopy.list[i];
 				Attribute& target = outputAttributes.list[i];
 
@@ -1116,9 +1116,9 @@ namespace chunker_countsort_laszip {
 
 		auto for_xyz = [](int64_t gridSize, function< void(int64_t, int64_t, int64_t)> callback) {
 
-			for (int x = 0; x < gridSize; x++) {
-			for (int y = 0; y < gridSize; y++) {
-			for (int z = 0; z < gridSize; z++) {
+			for (int64_t x = 0; x < gridSize; x++) {
+			for (int64_t y = 0; y < gridSize; y++) {
+			for (int64_t z = 0; z < gridSize; z++) {
 				callback(x, y, z);
 			}
 			}
@@ -1225,7 +1225,7 @@ namespace chunker_countsort_laszip {
 		// - create lookup table
 		// - loop through nodes, add pointers to node/chunk for all enclosed cells in LUT.
 		vector<int32_t> lut(gridSize* gridSize* gridSize, -1);
-		for (int i = 0; i < nodes.size(); i++) {
+		for (size_t i = 0; i < nodes.size(); i++) {
 			auto node = nodes[i];
 
 			for_xyz(node.size, [node, &lut, gridSize, i](int64_t ox, int64_t oy, int64_t oz) {
