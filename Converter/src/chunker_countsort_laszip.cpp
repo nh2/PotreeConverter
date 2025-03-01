@@ -708,7 +708,12 @@ namespace chunker_countsort_laszip {
 			}
 
 			if (bufferSize < numBytes) {
-				buffer.reset(malloc(numBytes));
+				void * p = malloc(numBytes);
+				if (p == NULL) {
+					perror("malloc");
+					exit(1);
+				}
+				buffer.reset(p);
 				bufferSize = numBytes;
 			}
 
