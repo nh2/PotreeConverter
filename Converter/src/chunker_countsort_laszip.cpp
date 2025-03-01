@@ -239,8 +239,8 @@ namespace chunker_countsort_laszip {
 
 					const double eps = std::numeric_limits<double>::epsilon();
 
-					bool inBox = ux + eps >= 0.0 && uy + eps >= 0.0 && uz + eps >= 0.0;
-					inBox = inBox && ux <= 1.0 + eps && uy <= 1.0 + eps && uz <= 1.0 + eps;
+					bool inBox = ux2 + eps >= 0.0 && uy2 + eps >= 0.0 && uz2 + eps >= 0.0;
+					inBox = inBox && ux2 <= 1.0 + eps && uy2 <= 1.0 + eps && uz2 <= 1.0 + eps;
 
 					if (!inBox) {
 						stringstream ss;
