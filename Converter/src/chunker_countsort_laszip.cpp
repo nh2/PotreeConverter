@@ -717,13 +717,6 @@ namespace chunker_countsort_laszip {
 			auto gridSize = lut->gridSize;
 			auto& grid = lut->grid;
 
-			// Using `thread_local` here allows a `processor` thread that works
-			// multiple `task`s to keep its last `malloc` when it's large enough.
-			// This avoiding `free()` + new `malloc()`, but also means that
-			// a `processor` thread does not shrink its memory down again.
-			thread_local unique_ptr<void, void(*)(void*)> buffer(nullptr, free);
-			thread_local int64_t bufferSize = -1;
-
 			{ // sanity checks
 				if(numBytes < 0){
 					logger::ERROR("invalid malloc size: " + formatNumber(numBytes));
@@ -731,21 +724,8 @@ namespace chunker_countsort_laszip {
 				}
 			}
 
-			if (bufferSize < numBytes) { // cannot re-use last malloc
-				void * p = malloc(numBytes);
-				if (p == NULL) {
-					perror("malloc");
-					exit(1);
-				}
-				buffer.reset(p); // frees the previous malloc
-				bufferSize = numBytes;
-			}
-
-			uint8_t* data = reinterpret_cast<uint8_t*>(buffer.get());
-			// memset necessary if attribute handlers don't set all values. 
-			// previous handlers from input with different point formats
-			// may have set the values before.
-			memset(data, 0, bufferSize); 
+			auto data_unique_ptr = make_unique<uint8_t[]>(numBytes);
+			uint8_t* data = data_unique_ptr.get();
 
 			writer->waitUntilMemoryBelow(2'000);
 
