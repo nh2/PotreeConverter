@@ -233,6 +233,9 @@ namespace chunker_countsort_laszip {
 					double ux = (double(X) * posScale.x + posOffset.x - min.x) / size.x;
 					double uy = (double(Y) * posScale.y + posOffset.y - min.y) / size.y;
 					double uz = (double(Z) * posScale.z + posOffset.z - min.z) / size.z;
+					double ux2 = (x - min.x) / size.x;
+					double uy2 = (y - min.y) / size.y;
+					double uz2 = (z - min.z) / size.z;
 
 					const double eps = std::numeric_limits<double>::epsilon();
 
@@ -241,10 +244,21 @@ namespace chunker_countsort_laszip {
 
 					if (!inBox) {
 						stringstream ss;
+						ss << setprecision(17);
 						ss << "encountered point outside bounding box." << endl;
 						ss << "box.min: " << min.toString() << endl;
 						ss << "box.max: " << max.toString() << endl;
+						ss << "posOffset: " << posOffset.toString() << endl;
 						ss << "point: " << Vector3(x, y, z).toString() << endl;
+						ss << "ux:  " << ux << endl;
+						ss << "ux2: " << ux2 << endl;
+						ss << "uy: " << uy << endl;
+						ss << "uz: " << uz << endl;
+						ss << "ux + eps: " << (ux + eps) << endl;
+						ss << "uy + eps: " << (uy + eps) << endl;
+						ss << "uz + eps: " << (uz + eps) << endl;
+						ss << "1.0 + eps: " << (1.0 + eps) << endl;
+						ss << "ux <= 1.0 + eps: " << (ux <= 1.0 + eps) << endl;
 						ss << "file: " << path << endl;
 						ss << "PotreeConverter requires a valid bounding box to operate." << endl;
 						ss << "Please try to repair the bounding box, e.g. using lasinfo with the -repair_bb argument." << endl;
