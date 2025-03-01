@@ -905,7 +905,6 @@ namespace chunker_countsort_laszip {
 				auto index = toIndex(pointOffset);
 
 				auto nodeIndex = grid[index];
-				auto& node = nodes[nodeIndex];
 
 				if (nodeIndex == previousNodeIndex) {
 					previousBucket->write(&data[0] + pointOffset, bpp);
