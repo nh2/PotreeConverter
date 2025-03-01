@@ -879,16 +879,16 @@ namespace chunker_countsort_laszip {
 			for (int64_t i = 0; i < batchSize; i++) {
 				auto index = toIndex(i * bpp);
 
-				auto nodeIndex = grid[index];
+				int nodeIndex = grid[index];
 
 				// ERROR
 				if (nodeIndex == -1) {
 
 					int32_t* xyz = reinterpret_cast<int32_t*>(&data[0] + i * bpp);
 
-					auto x = xyz[0];
-					auto y = xyz[1];
-					auto z = xyz[2];
+					int32_t x = xyz[0];
+					int32_t y = xyz[1];
+					int32_t z = xyz[2];
 
 					double ux = (xyz[0] * scale.x + outputAttributes.posOffset.x - min.x) / size.x;
 					double uy = (xyz[1] * scale.y + outputAttributes.posOffset.y - min.y) / size.y;
