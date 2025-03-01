@@ -226,15 +226,14 @@ namespace chunker_countsort_laszip {
 					double y = coordinates[1];
 					double z = coordinates[2];
 
-					int32_t X = int32_t((x - posOffset.x) / posScale.x);
-					int32_t Y = int32_t((y - posOffset.y) / posScale.y);
-					int32_t Z = int32_t((z - posOffset.z) / posScale.z);
-
-					double ux = (double(X) * posScale.x + posOffset.x - min.x) / size.x;
-					double uy = (double(Y) * posScale.y + posOffset.y - min.y) / size.y;
-					double uz = (double(Z) * posScale.z + posOffset.z - min.z) / size.z;
+					double ux = (x - min.x) / size.x;
+					double uy = (y - min.y) / size.y;
+					double uz = (z - min.z) / size.z;
 
 					const double eps = std::numeric_limits<double>::epsilon();
+					// Note `eps` generally needs to be scaled for comparisons, unless
+					// they are around 1.0, which they are for us below; see:
+					// https://stackoverflow.com/questions/35158493/how-to-choose-epsilon-value-for-floating-point/35158586#35158586
 
 					bool inBox = ux + eps >= 0.0 && uy + eps >= 0.0 && uz + eps >= 0.0;
 					inBox = inBox && ux <= 1.0 + eps && uy <= 1.0 + eps && uz <= 1.0 + eps;
