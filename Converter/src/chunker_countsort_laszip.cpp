@@ -177,21 +177,6 @@ namespace chunker_countsort_laszip {
 			logger::INFO(ss.str());
 			
 			
-
-			thread_local unique_ptr<void, void(*)(void*)> buffer(nullptr, free);
-			thread_local int64_t bufferSize = -1;
-
-			{ // sanity checks
-				if(numBytes < 0){
-					logger::ERROR("invalid malloc size: " + formatNumber(numBytes));
-				}
-			}
-
-			if (bufferSize < numBytes){
-				buffer.reset(malloc(numBytes));
-				bufferSize = numBytes;
-			}
-
 			laszip_POINTER laszip_reader;
 			{
 				laszip_BOOL is_compressed = iEndsWith(path, ".laz") ? 1 : 0;
