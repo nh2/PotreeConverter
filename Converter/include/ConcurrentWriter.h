@@ -153,6 +153,8 @@ struct ConcurrentWriter {
 			// if no work available, sleep and try again later
 			if (work.size() == 0) {
 				std::this_thread::sleep_for(10ms);
+				// TODO: If work comes in within the time we sleep, the program doesn't work when it should; may happen repeatedly.
+				//  		 This should better use proper thread signalling instead of sleep-polling
 				continue;
 			} 
 
