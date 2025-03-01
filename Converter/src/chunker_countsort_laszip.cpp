@@ -717,7 +717,10 @@ namespace chunker_countsort_laszip {
 			auto gridSize = lut->gridSize;
 			auto& grid = lut->grid;
 
-
+			// Using `thread_local` here allows a `processor` thread that works
+			// multiple `task`s to keep its last `malloc` when it's large enough.
+			// This avoiding `free()` + new `malloc()`, but also means that
+			// a `processor` thread does not shrink its memory down again.
 			thread_local unique_ptr<void, void(*)(void*)> buffer(nullptr, free);
 			thread_local int64_t bufferSize = -1;
 
@@ -728,13 +731,13 @@ namespace chunker_countsort_laszip {
 				}
 			}
 
-			if (bufferSize < numBytes) {
+			if (bufferSize < numBytes) { // cannot re-use last malloc
 				void * p = malloc(numBytes);
 				if (p == NULL) {
 					perror("malloc");
 					exit(1);
 				}
-				buffer.reset(p);
+				buffer.reset(p); // frees the previous malloc
 				bufferSize = numBytes;
 			}
 
