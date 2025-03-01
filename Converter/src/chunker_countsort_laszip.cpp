@@ -897,8 +897,6 @@ namespace chunker_countsort_laszip {
 			}
 			
 			// ADD POINTS TO BUCKETS
-			shared_ptr<Buffer> previousBucket = nullptr;
-			int64_t previousNodeIndex = -1;
 			for (int64_t i = 0; i < batchSize; i++) {
 				int64_t pointOffset = i * bpp;
 
@@ -906,13 +904,7 @@ namespace chunker_countsort_laszip {
 
 				auto nodeIndex = grid[index];
 
-				if (nodeIndex == previousNodeIndex) {
-					previousBucket->write(&data[0] + pointOffset, bpp);
-				} else {
-					previousBucket = buckets[nodeIndex];
-					previousNodeIndex = nodeIndex;
-					previousBucket->write(&data[0] + pointOffset, bpp);
-				}
+				buckets[nodeIndex]->write(&data[0] + pointOffset, bpp);
 			}
 
 			state.pointsProcessed += batchSize;
