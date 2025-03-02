@@ -862,9 +862,9 @@ namespace chunker_countsort_laszip {
 			for (int64_t i = 0; i < batchSize; i++) {
 				int64_t pointOffset = i * bpp;
 
-				auto index = toIndex(pointOffset);
+				size_t index = toIndex(pointOffset);
 
-				auto nodeIndex = grid[index];
+				int nodeIndex = grid[index];
 
 				buckets[nodeIndex]->write(&data[0] + pointOffset, bpp);
 			}
