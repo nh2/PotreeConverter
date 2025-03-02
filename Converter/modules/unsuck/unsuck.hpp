@@ -362,16 +362,46 @@ inline string readTextFile(string path) {
 // 	return buffer;
 // }
 
+
+// Wrapper around `read()` that turns errors into exceptions and also handles EINTR retrying.
+inline void readRetry(int fd, uint8_t * buf, size_t count, string what) {
+	size_t offset = 0;
+	while (count - offset > 0) {
+		size_t toRead = count - offset;
+		ssize_t numRead = read(fd, buf + offset, toRead);
+		if (numRead == 0) { // end of file
+			throw std::runtime_error(what + " got shorter during read, aborting");
+		} else if (numRead < 0) { // error
+			if (errno == EINTR) {
+				continue;
+			}
+			throw std::runtime_error("Failed to read " + what + ": " + std::system_error(errno, std::system_category()).what());
+		} else { // short read
+			offset += numRead;
+		}
+	}
+}
+
+
 inline shared_ptr<Buffer> readBinaryFile(string path) {
 
 	auto file = fopen(path.c_str(), "rb");
 	auto size = fs::file_size(path);
 
+	int fd = ::fileno(file);
+	if (fd < 0) {
+		throw std::runtime_error("Failed to obtain FD for " + path + ": " + std::system_error(errno, std::system_category()).what());
+	}
+
 	//vector<uint8_t> buffer(size);
 	auto buffer = make_shared<Buffer>(size);
 
-	fread(buffer->data, 1, size, file);
-	fclose(file);
+	readRetry(fd, buffer->data_u8, size, path);
+
+	int close_ret = fclose(file);
+	if (close_ret != 0) {
+		throw std::runtime_error("Failed to close " + path + ", error " + to_string(close_ret) + ": " + std::system_error(errno, std::system_category()).what());
+	}
 
 	return buffer;
 }
