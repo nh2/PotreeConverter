@@ -34,8 +34,10 @@ struct Monitor {
 		string strDuration = formatNumber(this->state->duration) + "s";
 		string strThroughput = formatNumber(throughput) + "MPs";
 
-		string strRAM = formatNumber(double(ram.virtual_usedByProcess) / GB, 1)
+		string strRAMvirt = formatNumber(double(ram.virtual_usedByProcess) / GB, 1)
 			+ "GB (highest " + formatNumber(double(ram.virtual_usedByProcess_max) / GB, 1) + "GB)";
+		string strRAMphys = formatNumber(double(ram.physical_usedByProcess) / GB, 1)
+			+ "GB (highest " + formatNumber(double(ram.physical_usedByProcess_max) / GB, 1) + "GB)";
 		string strCPU = formatNumber(CPU.usage) + "%";
 
 		stringstream ss;
@@ -43,7 +45,7 @@ struct Monitor {
 			<< "[" << this->state->name << ": " << strProgressPass 
 			<< ", duration: " << strDuration 
 			<< ", throughput: " << strThroughput << "]"
-			<< "[RAM: " << strRAM << ", CPU: " << strCPU << "]" << endl;
+			<< "[RAM phys: " << strRAMphys << ", RAM virt: " << strRAMvirt << ", CPU: " << strCPU << "]" << endl;
 
 		cout << ss.str() << std::flush;
 
