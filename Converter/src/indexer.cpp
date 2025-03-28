@@ -1650,6 +1650,7 @@ void doIndexing(string targetDir, State& state, Options& options, Sampler& sampl
 
 		stringstream msg;
 		msg << "start indexing chunk " + chunk->id << "\n";
+		msg << "indexer.bytesInMemory (of chunks loaded, before +filesize below): " << formatNumber(static_cast<int64_t>(indexer.bytesInMemory)) << "\n";
 		msg << "filesize: " << formatNumber(filesize) << "\n";
 		msg << "min: " << chunk->min.toString() << "\n";
 		msg << "max: " << chunk->max.toString();
