@@ -226,15 +226,36 @@ namespace chunker_countsort_laszip {
 					double y = coordinates[1];
 					double z = coordinates[2];
 
-					double ux = (x - min.x) / size.x;
-					double uy = (y - min.y) / size.y;
-					double uz = (z - min.z) / size.z;
+					// See note [use-of-output-quantised-positions]:
+					int32_t X = int32_t((x - posOffset.x) / posScale.x);
+					int32_t Y = int32_t((y - posOffset.y) / posScale.y);
+					int32_t Z = int32_t((z - posOffset.z) / posScale.z);
 
-					const double eps = std::numeric_limits<double>::epsilon();
+					double ux = (double(X) * posScale.x + posOffset.x - min.x) / size.x;
+					double uy = (double(Y) * posScale.y + posOffset.y - min.y) / size.y;
+					double uz = (double(Z) * posScale.z + posOffset.z - min.z) / size.z;
+
+					// Check that the LAS-provided points are really in the LAS-header-provided
+					// bounding boxes, combined with checking that when scaled into our
+					// output grid (the size of which is computed from LAS headers),
+					// the point is within the grid.
+					// This is a big ugly because it checks two things in conjunction
+					// (1. input validation of the LAS; 2. internal assertion that
+					// should always hold if the code is correct)
+					// when it would probably be better to check them in separation,
+					// because in conjunction, the result is also affected by floating
+					// point inaccuracy of the operations above.
+					const double eps = 10 * std::numeric_limits<double>::epsilon();
 					// Note `eps` generally needs to be scaled for comparisons, unless
 					// they are around 1.0, which they are for us below; see:
 					// https://stackoverflow.com/questions/35158493/how-to-choose-epsilon-value-for-floating-point/35158586#35158586
-
+					// But just 1 `eps` is not enough; we have observed datasets where
+					//
+					//     ux        = 1.0000000000000004
+					//     1.0 + eps = 1.0000000000000002
+					//
+					// So we choose 10 eps above; it would be better if we could somehow
+					// compute a guaranteed exact limit.
 					bool inBox = ux + eps >= 0.0 && uy + eps >= 0.0 && uz + eps >= 0.0;
 					inBox = inBox && ux <= 1.0 + eps && uy <= 1.0 + eps && uz <= 1.0 + eps;
 
@@ -780,6 +801,7 @@ namespace chunker_countsort_laszip {
 						double y = coordinates[1];
 						double z = coordinates[2];
 
+						// quantised position written to chunks
 						int32_t X = int32_t((x - outputAttributes.posOffset.x) / scale.x);
 						int32_t Y = int32_t((y - outputAttributes.posOffset.y) / scale.y);
 						int32_t Z = int32_t((z - outputAttributes.posOffset.z) / scale.z);
@@ -816,6 +838,22 @@ namespace chunker_countsort_laszip {
 
 			double dGridSize = double(gridSize);
 
+			// Note [use-of-output-quantised-positions]:
+			// Compute the grid cell of the output-quantised position.
+			// We need to use the output-quantised position, not the original input-LAS-quantised position,
+			// because we have to count+chunk the exact coordinates that we actually output.
+			// This is why the computations below look redundant
+			// (computing forward/backward between quantised int32_t and double),
+			// but they are not, as `data` is output-quantised
+			// (created in the loop above:
+			//      input-LAS-quantised
+			//   -> double (using offset and scale of the individual las)
+			//   -> output-quantised (using offset and scale of the Potree output;
+			//                        the offset is the minimum of all input LASs,
+			//  											the scale is the one of Potree's chosen quantisation)
+			// ), and then below we compute the `double` XYZ of the output-quantised
+			// coordinate so we can compute into which chunking grid cell
+			// the output-quantised coordinate falls.
 			auto toIndex = [data, &outputAttributes, scale, gridSize, dGridSize, size, min](int64_t pointOffset) {
 				int32_t* xyz = reinterpret_cast<int32_t*>(&data[0] + pointOffset);
 
