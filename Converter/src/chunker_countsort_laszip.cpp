@@ -890,9 +890,9 @@ namespace chunker_countsort_laszip {
 					auto y = xyz[1];
 					auto z = xyz[2];
 
-					double ux = (xyz[0] * scale.x + outputAttributes.posOffset.x) / size.x;
-					double uy = (xyz[1] * scale.y + outputAttributes.posOffset.y) / size.y;
-					double uz = (xyz[2] * scale.z + outputAttributes.posOffset.z) / size.z;
+					double ux = (xyz[0] * scale.x + outputAttributes.posOffset.x - min.x) / size.x;
+					double uy = (xyz[1] * scale.y + outputAttributes.posOffset.y - min.y) / size.y;
+					double uz = (xyz[2] * scale.z + outputAttributes.posOffset.z - min.z) / size.z;
 
 					int64_t ix = int64_t(std::min(dGridSize * ux, dGridSize - 1.0));
 					int64_t iy = int64_t(std::min(dGridSize * uy, dGridSize - 1.0));
