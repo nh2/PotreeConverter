@@ -1119,6 +1119,9 @@ namespace chunker_countsort_laszip {
 		// than `maxPointsPerChunk` points.
 		// This limit here only bounds the maximum memory use of chunks in PotreeConverter,
 		// as chunks are designed to fit into memory.
+		//
+		// An underapproximation (fast but incomplete variant) of this check is run by
+		// `checkSourcesForOversizedCells()`.
 		const int64_t maxPointsPerCell = int64_t(1) << 31; // INT32_MAX + 1
 		double cellSize = cubeSize / double(gridSize);
 		for (int64_t index = 0; index < int64_t(grid_high.size()); index++) {
@@ -1252,21 +1255,28 @@ namespace chunker_countsort_laszip {
 		return {gridSize, lut};
 	}
 
+	int64_t chunkingGridSize(int64_t totalPoints) {
+		if (totalPoints < 100'000'000) {
+			return 128;
+		} else if (totalPoints < 500'000'000) {
+			return 256;
+		} else {
+			return 512;
+		}
+	}
+
+	int64_t chunkingMaxPointsPerChunk(int64_t totalPoints) {
+		return std::min(totalPoints / 20, int64_t(10'000'000));
+	}
+
 	void doChunking(vector<Source> sources, string targetDir, Vector3 min, Vector3 max, State& state, Attributes outputAttributes, Monitor* monitor) {
 
 		auto tStart = now();
 
-		int64_t tmp = state.pointsTotal / 20;
-		maxPointsPerChunk = std::min(tmp, int64_t(10'000'000));
+		maxPointsPerChunk = chunkingMaxPointsPerChunk(state.pointsTotal);
 		// cout << "maxPointsPerChunk: " << maxPointsPerChunk << endl;
 
-		if (state.pointsTotal < 100'000'000) {
-			gridSize = 128;
-		}else if(state.pointsTotal < 500'000'000){
-			gridSize = 256;
-		} else {
-			gridSize = 512;
-		}
+		gridSize = chunkingGridSize(state.pointsTotal);
 
 		state.currentPass = 1;
 

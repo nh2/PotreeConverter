@@ -212,6 +212,66 @@ struct Stats {
 	int64_t totalPoints = 0;
 };
 
+// Cheap pigeonhole check, run before counting, that catches the common
+// "inputs are kilometers apart, e.g. in mismatched coordinate frames" case early
+// and with a clear error, instead of only hitting the per-cell limit in
+// `createLUT` after a full counting pass.
+//
+// The chunker lays a `gridSize^3` grid over the global bounding cube, so each
+// cell has edge length `cubeSize / gridSize`.
+// For a single source, the number of cells it can possibly touch is bounded
+// by how many cells its own bounding box spans along each axis
+// (clamped to `[1, gridSize]`).
+// If we then spread the source's points as evenly as possible over those cells,
+// by the pigeonhole principle at least one cell must hold
+// `ceil(numPoints / maxCellsOccupied)` points.
+// If even that lower bound exceeds `chunkingMaxPointsPerChunk`, the input cannot
+// be chunked sensibly regardless of where the other sources land, so we error out.
+//
+// This is sound (no false positives) but incomplete:
+// It cannot catch the case where several individually-fine sources combine
+// into one overfull cell. That remaining case is caught at counting time
+// by the per-cell limit in `createLUT`.
+static void checkSourcesForOversizedCells(
+	const vector<Source> & sources,
+	const Vector3 & min,
+	const Vector3 & max,
+	double cubeSize,
+	int64_t totalPoints
+) {
+	int64_t gridSize = chunker_countsort_laszip::chunkingGridSize(totalPoints);
+	int64_t maxPointsPerChunk = chunker_countsort_laszip::chunkingMaxPointsPerChunk(totalPoints);
+	double cellSize = cubeSize / double(gridSize);
+
+	auto cellsAlongAxis = [cellSize, gridSize, min](double lo, double hi, double axisMin) {
+		int64_t loCell = int64_t(std::floor((lo - axisMin) / cellSize));
+		int64_t hiCell = int64_t(std::floor((hi - axisMin) / cellSize));
+		int64_t numCells = (hiCell - loCell) + 1;
+		return std::max(int64_t(1), std::min(numCells, gridSize));
+	};
+
+	for (const Source & source : sources) {
+		int64_t maxCellsOccupied =
+			cellsAlongAxis(source.min.x, source.max.x, min.x) *
+			cellsAlongAxis(source.min.y, source.max.y, min.y) *
+			cellsAlongAxis(source.min.z, source.max.z, min.z);
+		int64_t minPointsPerCell = ((int64_t)source.numPoints + maxCellsOccupied - 1) / maxCellsOccupied;
+
+		if (minPointsPerCell > maxPointsPerChunk) {
+			stringstream ss;
+			ss << "Error: input file '" << source.path << "' is too densely concentrated relative to the overall bounding box." << endl;
+			ss << "It has " << formatNumber((int64_t)source.numPoints) << " points within a bounding box that spans at most " << formatNumber(maxCellsOccupied) << " grid cells," << endl;
+			ss << "so at least one cell must hold " << formatNumber(minPointsPerCell) << " points, exceeding the limit of " << formatNumber(maxPointsPerChunk) << " points per chunk." << endl;
+			ss << "grid size: " << gridSize << "^3 cells; bounding cube edge: " << formatNumber(cubeSize, 3) << " (in the point cloud's units, usually meters)" << endl;
+			ss << "=> each cell is " << formatNumber(cellSize, 3) << " wide." << endl;
+			ss << "This almost always means the overall bounding box is far too large, typically because the input files are in mismatched coordinate frames (e.g. two scans placed kilometers apart)." << endl;
+			ss << "Please check that all input files share the same coordinate reference system." << endl;
+			logger::ERROR(ss.str());
+			exit(123);
+		}
+	}
+}
+
 Stats computeStats(vector<Source> sources){
 
 	Vector3 min = { Infinity , Infinity , Infinity };
@@ -279,6 +339,8 @@ Stats computeStats(vector<Source> sources){
 		}
 		
 	}
+
+	checkSourcesForOversizedCells(sources, min, max, cubeSize, totalPoints);
 
 	return { min, max, totalBytes, totalPoints };
 }
