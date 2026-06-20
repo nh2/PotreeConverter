@@ -11,6 +11,7 @@
 #include "chunker_countsort_laszip.h"
 
 #include "Attributes.h"
+#include "ConcurrentCarriedCounters.h"
 #include "converter_utils.h"
 #include "unsuck/unsuck.hpp"
 #include "unsuck/TaskPool.hpp"
@@ -130,7 +131,7 @@ namespace chunker_countsort_laszip {
 		vector<int> grid;
 	};
 
-	vector<std::atomic_int64_t> countPointsInCells(vector<Source> sources, Vector3 min, Vector3 max, int64_t gridSize, State& state, Attributes& outputAttributes, Monitor* monitor) {
+	ConcurrentCarriedCounters<uint64_t, uint32_t> countPointsInCells(vector<Source> sources, Vector3 min, Vector3 max, int64_t gridSize, State& state, Attributes& outputAttributes, Monitor* monitor) {
 
 		cout << endl;
 		cout << "=======================================" << endl;
@@ -142,10 +143,13 @@ namespace chunker_countsort_laszip {
 		//Vector3 size = max - min;
 
 		// Per-cell point counters.
-		// 64-bit counters are required (instead of 32-bit):
+		// 64-bit-wide counts are required (instead of 32-bit):
 		// Pathological inputs adding a point 5M meters away can make all points (billions)
-		// fall into a single cell, causing integer overflow.
-		vector<std::atomic_int64_t> grid(gridSize * gridSize * gridSize);
+		// fall into a single cell, overflowing a 32-bit counter.
+		// `ConcurrentCarriedCounters` provides 64-bit-wide counts while storing only a
+		// 32-bit counter per cell plus a small carry side-table for the rare cells that
+		// exceed 32 bits, avoiding the 2x memory of a full 64-bit grid.
+		ConcurrentCarriedCounters<uint64_t, uint32_t> grid(gridSize * gridSize * gridSize);
 
 		struct Task{
 			string path;
@@ -269,7 +273,7 @@ namespace chunker_countsort_laszip {
 
 					int64_t index = ix + iy * gridSize + iz * gridSize * gridSize;
 
-					grid[index]++;
+					grid.increment(index);
 				}
 
 			}
@@ -370,7 +374,7 @@ namespace chunker_countsort_laszip {
 		}
 
 
-		return std::move(grid);
+		return grid;
 	}
 
 	void addBuckets(string targetDir, vector<shared_ptr<Buffer>>& newBuckets) {
@@ -1080,7 +1084,7 @@ namespace chunker_countsort_laszip {
 	// XXX_high: variables of the higher/more detailed level of the pyramid that we're evaluating right now
 	// XXX_low: one level lower than _high; the target of the "downsampling" operation
 	//
-	NodeLUT createLUT(vector<atomic_int64_t>& grid, int64_t gridSize, double cubeSize) {
+	NodeLUT createLUT(ConcurrentCarriedCounters<uint64_t, uint32_t>& grid, int64_t gridSize, double cubeSize) {
 		auto tStart = now();
 
 		auto for_xyz = [](int64_t gridSize, function< void(int64_t, int64_t, int64_t)> callback) {
@@ -1094,13 +1098,6 @@ namespace chunker_countsort_laszip {
 			}
 
 		};
-
-		// atomic vectors are cumbersome, convert the highest level into a regular integer vector first.
-		vector<int64_t> grid_high;
-		grid_high.reserve(grid.size());
-		for (auto& value : grid) {
-			grid_high.push_back(value);
-		}
 
 		// Error if there are too many points in a cell:
 		// A single finest-level cell holding too many points cannot be split further (the counting
@@ -1124,8 +1121,8 @@ namespace chunker_countsort_laszip {
 		// `checkSourcesForOversizedCells()`.
 		const int64_t maxPointsPerCell = int64_t(1) << 31; // INT32_MAX + 1
 		double cellSize = cubeSize / double(gridSize);
-		for (int64_t index = 0; index < int64_t(grid_high.size()); index++) {
-			int64_t count = grid_high[index];
+		for (int64_t index = 0; index < int64_t(grid.size()); index++) {
+			int64_t count = int64_t(grid.get(index));
 			if (count >= maxPointsPerCell) {
 				int64_t ix = index % gridSize;
 				int64_t iy = (index / gridSize) % gridSize;
@@ -1145,6 +1142,14 @@ namespace chunker_countsort_laszip {
 			}
 		}
 
+		// Convert the atomic counting grid into a regular integer vector for the pyramid merging below.
+		// `int32_t` suffices because the per-cell check above guarantees every count is `< 2^31`.
+		vector<int32_t> grid_high;
+		grid_high.reserve(grid.size());
+		for (uint64_t count : grid) {
+			grid_high.push_back(int32_t(count));
+		}
+
 		int64_t level_max = int64_t(log2(gridSize));
 
 		// - evaluate counting grid in "image pyramid" fashion
@@ -1157,7 +1162,10 @@ namespace chunker_countsort_laszip {
 			int64_t gridSize_high = pow(2, level_high);
 			int64_t gridSize_low = pow(2, level_low);
 
-			vector<int64_t> grid_low(gridSize_low * gridSize_low * gridSize_low, 0);
+			// `int32_t` storage suffices: each stored value is either the sentinel `-1`
+			// (unmergeable), or a merged sum that was kept only because it is
+			// `<= maxPointsPerChunk`.
+			vector<int32_t> grid_low(gridSize_low * gridSize_low * gridSize_low, 0);
 			// grid_high
 
 			// loop through all cells of the lower detail target grid, and for each cell through the 8 enclosed cells of the higher level grid
@@ -1181,7 +1189,7 @@ namespace chunker_countsort_laszip {
 
 					int64_t index_high = nx + ny * gridSize_high + nz * gridSize_high * gridSize_high;
 
-					auto value = grid_high[index_high];
+					int64_t value = grid_high[index_high];
 
 					if (value == -1) {
 						unmergeable = true;
